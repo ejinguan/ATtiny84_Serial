@@ -34,13 +34,15 @@ volatile uint8_t recvBitNUm = 0;
 void setup() {
   // put your setup code here, to run once:
 
-  TCCR1A = 0;
-  TCCR1B = 0;
-
+  // Set up data direction
   DDRA |= (1 << PA6); // set LED pin as output
   
   DDRA |= (1 << PA0); // Set Serial Output as Output
   DDRB &= ~(1 << PB0); // Set Serial Input as input
+
+  // Set up timers
+  TCCR1A = 0;
+  TCCR1B = 0;
   
   TCCR1B |= (1 << WGM12); // configure timer1 for CTC mode
   TIMSK1 |= (1 << OCIE1A); // enable the CTC interrupt
@@ -49,16 +51,17 @@ void setup() {
   OCR1A = 833; // Should return frequency ~1000hz
   TCCR1B |= PRESCALE0_1;
 
+  // Initialize Serial Output and LED pin to HIGH
   PORTA |= (1 << PA0);
   PORTA |= (1 << PA6);
-  digitalWrite(0, HIGH);
-
-  byte i = 0;
+  
 
   if (sendTail == 0) {
     PORTA &= ~(1 << PA6);
   }
-  
+
+  // Initial test
+  byte i = 0;
   for (i=0; i<50; i++)
     sendByte(i);
 }
@@ -91,7 +94,7 @@ ISR (TIM1_COMPA_vect) {
   }
 
   // Read buffer
-  
+  // TODO:
 
 }
 
