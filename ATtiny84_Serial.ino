@@ -13,6 +13,9 @@
 #define SEND_BUFFER_SIZE 64
 #define RECV_BUFFER_SIZE 64
 
+#define wrapSendNum(x) ((x) % SEND_BUFFER_SIZE)
+#define wrapRecvNum(x) ((x) % RECV_BUFFER_SIZE)
+
 //=========================
 
 // Send helper variables
@@ -24,10 +27,12 @@ volatile uint8_t sendBitNum = 0;
 //=========================
 
 // Receive helper variables
-byte recvBuffer[64];
+byte recvBuffer[RECV_BUFFER_SIZE];
+boolean isReceiving = false;
+boolean lastRead = false;
 volatile uint8_t recvHead = 0;
 volatile uint8_t recvTail = 0;
-volatile uint8_t recvBitNUm = 0;
+volatile uint8_t recvBitNum = 0;
 
 //=========================
 
@@ -69,6 +74,10 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
+  if (isAvailable()) {
+    sendByte(readByte());
+  }
+
 }
 
 
@@ -78,7 +87,7 @@ ISR (TIM1_COMPA_vect) {
   // PORTA |= (1 << PA6);
 
 
-  // Send buffer
+  // Write out Send buffer
   if (sendHead != sendTail) {
     // PORTA &= ~(1 << PA6);
     // PORTA |= (1 << PA6);
@@ -96,6 +105,50 @@ ISR (TIM1_COMPA_vect) {
   // Read buffer
   // TODO:
 
+  // Read PB0 from Serial In
+  lastRead = (PINB >> PB0) & 0x01;
+  // If not receiving, set receiving flag if Start bit received
+  if (!isReceiving && lastRead == 0) {
+    // Start bit received
+    isReceiving = true;
+    recvBitNum = 0;
+    recvBuffer[recvTail] = 0;
+    
+  } else if (isReceiving) {
+    PORTA ^= (1 << PA6); // toggle the LED
+    
+    // Continue receive the rest of the bits
+    // recvBitNum runs from 0 to 7
+    if (recvBitNum < 8) {
+      // Shift right by 1
+      recvBuffer[recvTail] >>= 1;
+      if (lastRead)
+        recvBuffer[recvTail] |= 0x80;
+
+      recvBitNum++;
+    } else if (recvBitNum == 8) {
+      // Done with the bit
+      isReceiving = false;
+      recvTail = wrapRecvNum(recvTail + 1);
+    }
+  }
+
+}
+
+
+int readByte() {
+  // Check for empty buffer
+  if (recvHead == recvTail)
+    return -1;
+
+  // Return recvHead and increment
+  uint8_t tmp = recvBuffer[recvHead];
+  recvHead = wrapRecvNum(recvHead + 1);
+  return tmp;
+}
+
+boolean isAvailable() {
+  return (recvHead != recvTail);
 }
 
 
@@ -111,12 +164,20 @@ void sendByte(byte outByte){
   // sendHead will be consumed by ISR
 }
 
+/*
 uint8_t wrapSendNum(uint8_t num) {
   if (num < SEND_BUFFER_SIZE)
     return num;
   else
     return num - SEND_BUFFER_SIZE;
 }
+uint8_t wrapRecvNum(uint8_t num) {
+  if (num < RECV_BUFFER_SIZE)
+    return num;
+  else
+    return num - RECV_BUFFER_SIZE;
+}
+*/
 
 
 void sendByteBitNumber(byte tmp, uint8_t bitNum) {
@@ -133,8 +194,4 @@ void sendByteBitNumber(byte tmp, uint8_t bitNum) {
       else
         PORTA &= ~(1 << PA0);
   }
-}
-
-byte readByte(byte tmp, byte bitNum) {
-  
 }
