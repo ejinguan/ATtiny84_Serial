@@ -39,6 +39,8 @@ volatile uint8_t recvBitNum = 0;
 void setup() {
   // put your setup code here, to run once:
 
+  OSCCAL = 0x79;
+
   // Set up data direction
   DDRA |= (1 << PA6); // set LED pin as output
   
@@ -107,14 +109,8 @@ ISR (TIM1_COMPA_vect) {
 
   // Read PB0 from Serial In
   lastRead = (PINB >> PB0) & 0x01;
-  // If not receiving, set receiving flag if Start bit received
-  if (!isReceiving && lastRead == 0) {
-    // Start bit received
-    isReceiving = true;
-    recvBitNum = 0;
-    recvBuffer[recvTail] = 0;
-    
-  } else if (isReceiving) {
+  
+  if (isReceiving) {
     PORTA ^= (1 << PA6); // toggle the LED
     
     // Continue receive the rest of the bits
@@ -131,7 +127,13 @@ ISR (TIM1_COMPA_vect) {
       isReceiving = false;
       recvTail = wrapRecvNum(recvTail + 1);
     }
-  }
+  } else if (!isReceiving && lastRead == 0) {
+    // If not receiving, set receiving flag if Start bit received
+    // Start bit received
+    isReceiving = true;
+    recvBitNum = 0;
+    recvBuffer[recvTail] = 0;
+  } 
 
 }
 
@@ -163,21 +165,6 @@ void sendByte(byte outByte){
 
   // sendHead will be consumed by ISR
 }
-
-/*
-uint8_t wrapSendNum(uint8_t num) {
-  if (num < SEND_BUFFER_SIZE)
-    return num;
-  else
-    return num - SEND_BUFFER_SIZE;
-}
-uint8_t wrapRecvNum(uint8_t num) {
-  if (num < RECV_BUFFER_SIZE)
-    return num;
-  else
-    return num - RECV_BUFFER_SIZE;
-}
-*/
 
 
 void sendByteBitNumber(byte tmp, uint8_t bitNum) {
